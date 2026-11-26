@@ -1,5 +1,5 @@
 import './styles.css'
-import { key, normalizeEndpoint, tracks } from './catalog.js'
+import { key, tracks } from './catalog.js'
 import { createPlayer } from './player.js'
 import { button, icon } from './icons.js'
 import { load, save } from './storage.js'
@@ -9,7 +9,8 @@ const base = import.meta.env.BASE_URL
 const $ = selector => document.querySelector(selector)
 const data = load()
 const prefs = {
-  provider: data.provider === 'youtube' ? 'youtube' : 'audius',
+  provider: data.catalogVersion === 2 && data.provider === 'audius' ? 'audius' : 'youtube',
+  catalogVersion: 2,
   endpoint: typeof data.endpoint === 'string' ? data.endpoint : '',
   favorites: Array.isArray(data.favorites) ? data.favorites : [],
   playlists: Array.isArray(data.playlists) ? data.playlists : [],
@@ -103,7 +104,7 @@ function render() {
           <button class="primary" data-action="${hero ? 'play' : 'nav'}" data-index="0" data-view="search">${icon(hero ? 'play' : 'search')}${hero ? 'Reproducir' : 'Buscar música'}</button>
         </div>${hero ? cover(hero, 'hero-art') : '<div class="hero-disc" aria-hidden="true">' + icon('music') + '</div>'}
       </section>
-      <section class="section"><div class="section-head"><h2>En tendencia</h2><span>${providers[prefs.provider]}</span></div>
+      <section class="section"><div class="section-head"><h2>${prefs.provider === 'youtube' ? 'Para descubrir' : 'En tendencia'}</h2><span>${providers[prefs.provider]}</span></div>
         ${list.length ? `<div class="cards">${cards(list.slice(0, 6))}</div>` : empty(discoverStatus)}
       </section>
       ${list.length ? `<section class="section"><div class="section-head"><h2>Más para escuchar</h2></div><div class="track-list">${rows(list)}</div></section>` : ''}
@@ -137,7 +138,7 @@ function renderQueue() {
       row(item, index, current && key(current), isFavorite(item), 'queue-play', index === play.index ? 'menu' : 'remove-queue')).join('') : empty('Reproduce una canción o agrégala a la cola.')}</div></div>`
 }
 
-function updateProgress(duration = audio.duration, elapsed = audio.currentTime) {
+function updateProgress(duration = player.duration(), elapsed = player.currentTime()) {
   document.querySelectorAll('[data-time]').forEach(node => { node.textContent = time(elapsed) })
   document.querySelectorAll('[data-total]').forEach(node => { node.textContent = time(duration) })
   document.querySelectorAll('[data-range="seek"]').forEach(node => {
@@ -268,10 +269,10 @@ document.addEventListener('input', event => {
     query = target.value
     request?.abort()
     clearTimeout(debounce)
-    debounce = setTimeout(search, 350)
+    debounce = setTimeout(search, 650)
   }
-  if (target.dataset.range === 'seek' && Number.isFinite(audio.duration)) audio.currentTime = Number(target.value)
-  if (target.dataset.range === 'volume') audio.volume = Number(target.value)
+  if (target.dataset.range === 'seek') player.seek(Number(target.value))
+  if (target.dataset.range === 'volume') player.volume(Number(target.value))
 })
 document.addEventListener('submit', event => {
   const form = event.target
@@ -283,10 +284,8 @@ document.addEventListener('submit', event => {
   if (form.id === 'settings-form') {
     const values = new FormData(form)
     try {
-      const endpoint = normalizeEndpoint(values.get('endpoint'))
-      if (values.get('catalog') === 'youtube' && !endpoint) throw Error('Indica el servidor para activar YouTube Music.')
-      prefs.endpoint = endpoint
-      prefs.provider = values.get('catalog')
+      prefs.endpoint = ''
+      prefs.provider = values.get('catalog') === 'audius' ? 'audius' : 'youtube'
       persist()
       dialog.close()
       renderSide()

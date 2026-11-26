@@ -178,3 +178,10 @@ dialog::backdrop{background:#08080acb}
   #toast{bottom:calc(117px + var(--safe-bottom))}
 }
 @media(max-width:370px){.brand{font-size:18px}.top-actions .icon{width:36px}.source-pill{font-size:10px;padding-inline:8px}}
+
+.workspace{grid-template-rows:auto auto minmax(0,1fr)}
+#youtube-region{padding:8px max(14px,var(--safe-right)) 8px max(14px,var(--safe-left));background:#19191e;border-bottom:1px solid var(--line)}
+#youtube-region[hidden]{display:none}
+#youtube-frame{display:block;width:100%;max-width:360px;height:200px;border:0;margin:auto}
+#youtube-region p{color:var(--sub);font-size:12px;line-height:1.4;text-align:center;margin-top:6px}
+#view{grid-row:3}

@@ -1,3 +1,4 @@
+import { youtubePlayer } from './youtube.js'
 import { key, publicArtwork, stream } from './catalog.js'
 
 export function nextIndex(index, total, direction, { repeat, shuffle }, random = Math.random) {
@@ -18,7 +19,13 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
   let repeat = false
   let prepared = new Map()
   const track = () => queue[index]
-  const state = () => ({ queue, index, track: track(), playing: !audio.paused && !loading, loading, shuffle, repeat })
+  const isYouTube = () => track()?.source === 'youtube'
+  const video = youtubePlayer({ change, progress, failure, ended: () => advance(1, true) })
+  const state = () => ({
+    queue, index, track: track(),
+    playing: (isYouTube() ? video.playing() : !audio.paused) && !loading,
+    loading, shuffle, repeat
+  })
 
   function resolve(item) {
     const id = key(item)
@@ -45,12 +52,18 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
   async function select(position) {
     if (!queue[position]) return
     const request = ++serial
+    video.stop()
     index = position
     loading = true
     audio.pause()
     const item = track()
     change()
     try {
+      if (isYouTube()) {
+        await video.play(item.id, () => serial === request)
+        if (serial === request) onTrack(item)
+        return
+      }
       const url = await resolve(item)
       if (serial !== request) return
       audio.src = url
@@ -60,7 +73,7 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
       await audio.play()
       if (serial !== request) return
       onTrack(item)
-      if (queue[index + 1]) resolve(queue[index + 1]).catch(() => {})
+      if (queue[index + 1]?.source === 'audius') resolve(queue[index + 1]).catch(() => {})
     } catch (error) {
       if (serial === request) failure(error.message || 'No se pudo reproducir esta canción.')
     } finally {
@@ -71,11 +84,13 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     }
   }
   function advance(direction, automatic = false) {
-    if (direction < 0 && !automatic && audio.currentTime > 3) {
-      audio.currentTime = 0
+    if (direction < 0 && !automatic && (isYouTube() ? video.currentTime() : audio.currentTime) > 3) {
+      if (isYouTube()) video.seek(0)
+      else audio.currentTime = 0
       return
     }
     if (automatic && repeat && queue.length === 1) {
+      if (isYouTube()) return select(index)
       audio.currentTime = 0
       audio.play().catch(error => failure(error.message))
       return
@@ -86,6 +101,7 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
   }
   async function toggle() {
     if (!track() || loading) return
+    if (isYouTube()) return video.toggle()
     if (audio.paused) {
       if (loadedKey !== key(track()) || audio.error) {
         prepared.delete(key(track()))
@@ -106,18 +122,26 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     change()
   })
   for (const type of ['timeupdate', 'loadedmetadata', 'durationchange']) audio.addEventListener(type, () => {
-    progress(Number.isFinite(audio.duration) ? audio.duration : 0, audio.currentTime)
+    if (!isYouTube()) progress(Number.isFinite(audio.duration) ? audio.duration : 0, audio.currentTime)
   })
   const actions = {
-    play: () => { if (audio.paused) toggle() },
-    pause: () => audio.pause(), previoustrack: () => advance(-1),
-    nexttrack: () => advance(1), seekto: e => { if (Number.isFinite(e.seekTime)) audio.currentTime = e.seekTime }
+    play: () => { if (!state().playing) toggle() },
+    pause: () => isYouTube() ? video.pause() : audio.pause(), previoustrack: () => advance(-1),
+    nexttrack: () => advance(1), seekto: e => { if (Number.isFinite(e.seekTime)) seek(e.seekTime) }
   }
   for (const [name, handler] of Object.entries(actions)) {
     try { navigator.mediaSession?.setActionHandler(name, handler) } catch { /* Browser action unsupported. */ }
   }
+  function seek(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return
+    if (isYouTube()) video.seek(seconds)
+    else if (Number.isFinite(audio.duration)) audio.currentTime = seconds
+  }
   return {
-    state, select, toggle, advance,
+    state, select, toggle, advance, seek,
+    duration: () => isYouTube() ? video.duration() : audio.duration,
+    currentTime: () => isYouTube() ? video.currentTime() : audio.currentTime,
+    volume(value) { audio.volume = value; video.volume(value) },
     start(item, list) {
       prepared = new Map()
       queue = list.slice()

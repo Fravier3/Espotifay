@@ -36,6 +36,10 @@ export function shell(base) {
         <button class="quick-search" data-action="nav" data-view="search">${icon('search')}<span>Busca una canción o artista</span></button>
         <div class="top-actions"><button class="source-pill" data-action="settings" id="source"></button>${button('settings', 'Ajustes', 'settings')}</div>
       </header>
+      <section id="youtube-region" hidden aria-label="Reproductor de YouTube">
+        <div id="youtube-frame"></div>
+        <p>YouTube puede pausar la música al bloquear la pantalla.</p>
+      </section>
       <main id="view" tabindex="-1"></main>
     </div>
     <footer class="player-shell"><div id="player"></div><nav class="mobile-nav" aria-label="Principal móvil">${nav()}</nav></footer>
@@ -80,16 +84,18 @@ export function timeline(disabled) {
   return `<div class="timeline"><span data-time>0:00</span><input type="range" aria-label="Progreso de la canción" data-range="seek" min="0" max="0" step="0.1" value="0" ${disabled ? 'disabled' : ''}><span data-total>0:00</span></div>`
 }
 
-export function sourceSettings(source, endpoint) {
+export function sourceSettings(source) {
   return `<form id="settings-form" class="dialog-form">
     <label for="catalog">Catálogo activo</label>
-    <select id="catalog" name="catalog"><option value="audius" ${source === 'audius' ? 'selected' : ''}>Audius · música independiente</option><option value="youtube" ${source === 'youtube' ? 'selected' : ''}>YouTube · servidor Invidious</option></select>
-    <label for="endpoint">Servidor Invidious</label>
-    <input type="url" id="endpoint" name="endpoint" placeholder="https://tu-instancia.example" value="${escape(endpoint)}">
-    <p>Invidious busca canciones en YouTube desde la instancia que configures. Audius funciona sin cuenta.</p>
+    <select id="catalog" name="catalog">
+      <option value="youtube" ${source === 'youtube' ? 'selected' : ''}>YouTube Music</option>
+      <option value="audius" ${source === 'audius' ? 'selected' : ''}>Audius · música independiente</option>
+    </select>
+    <p>Las canciones de YouTube Music se reproducen con el reproductor de YouTube. La reproducción con el iPhone bloqueado sigue pendiente.</p>
     <p class="form-error" role="alert"></p>
     <button class="primary" type="submit">Guardar ajustes</button>
-    <small>Espotifay 1.0.0</small>
+    <small>Espotifay 1.1.0</small>
   </form>`
 }
+
 export { providers }

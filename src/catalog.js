@@ -1,10 +1,9 @@
 export const providers = {
   audius: 'Audius',
-  youtube: 'YouTube'
+  youtube: 'YouTube Music'
 }
 
 const audiusBase = 'https://api.audius.co/v1'
-const artwork = /^(https:)?\/\//i
 
 export function normalizeEndpoint(value) {
   if (!value.trim()) return ''
@@ -30,14 +29,6 @@ function fromAudius(track) {
   }
 }
 
-function fromYouTube(track) {
-  const image = track.videoThumbnails?.find(picture => picture.width >= 320)?.url
-  return {
-    id: track.videoId, source: 'youtube', title: track.title, artist: track.author,
-    image: artwork.test(image || '') ? image : `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`,
-    duration: track.lengthSeconds || 0
-  }
-}
 
 export function key(track) {
   return `${track.source}:${track.id}`
@@ -45,12 +36,10 @@ export function key(track) {
 
 export async function tracks(source, endpoint, query = '', signal) {
   if (source === 'youtube') {
-    if (!endpoint) throw Error('Configura una instancia de Invidious en Ajustes para usar este catálogo.')
-    const path = query ? `search?type=video&q=${encodeURIComponent(query)}` : 'trending?type=music'
-    const data = await json(`${endpoint}/api/v1/${path}`, signal)
-    if (!Array.isArray(data)) throw Error('El servidor de música devolvió una respuesta inválida.')
-    return data.filter(track => track.type === 'video' && !track.liveNow && /^[\w-]{11}$/.test(track.videoId))
-      .map(fromYouTube)
+    const data = await json('https://espotifay-catalog-vercel-fran.vercel.app/api/search?q=' +
+      encodeURIComponent(query || 'música latina éxitos'), signal)
+    if (!Array.isArray(data.tracks)) throw Error('El catálogo devolvió una respuesta inválida.')
+    return data.tracks
   }
   const path = query ? `search?query=${encodeURIComponent(query)}&limit=24` : 'trending?limit=24'
   const data = await json(`${audiusBase}/tracks/${path}`, signal)
