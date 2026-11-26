@@ -4,12 +4,12 @@
       <stop stop-color="#222839"/><stop offset="1" stop-color="#101116"/>
     </linearGradient>
     <linearGradient id="signal" x1="0%" y1="100%" x2="100%" y2="0%" gradientUnits="objectBoundingBox">
-      <stop stop-color="#ff9c80"/><stop offset="1" stop-color="#ffdb9e"/>
+      <stop stop-color="#1ed760"/><stop offset="1" stop-color="#a0f5bb"/>
     </linearGradient>
   </defs>
   <path fill="url(#background)" d="M0 0h512v512H0z"/>
-  <circle cx="256" cy="256" r="159" fill="#171922" stroke="#4a4049" stroke-width="4"/>
-  <circle cx="256" cy="256" r="127" fill="none" stroke="#3a333f" stroke-width="3"/>
+  <circle cx="256" cy="256" r="159" fill="#171922" stroke="#284b34" stroke-width="4"/>
+  <circle cx="256" cy="256" r="127" fill="none" stroke="#273d2f" stroke-width="3"/>
   <path d="M164 273h17l25-69 37 110 37-127 34 86h34" stroke="url(#signal)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <circle cx="349" cy="273" r="9" fill="#ffdfad"/>
+  <circle cx="349" cy="273" r="9" fill="#a0f5bb"/>
 </svg>

@@ -36,10 +36,6 @@ export function shell(base) {
         <button class="quick-search" data-action="nav" data-view="search">${icon('search')}<span>Busca una canción o artista</span></button>
         <div class="top-actions"><button class="source-pill" data-action="settings" id="source"></button>${button('settings', 'Ajustes', 'settings')}</div>
       </header>
-      <section id="youtube-region" hidden aria-label="Reproductor de YouTube">
-        <div id="youtube-frame"></div>
-        <p>YouTube puede pausar la música al bloquear la pantalla.</p>
-      </section>
       <main id="view" tabindex="-1"></main>
     </div>
     <footer class="player-shell"><div id="player"></div><nav class="mobile-nav" aria-label="Principal móvil">${nav()}</nav></footer>
@@ -91,10 +87,10 @@ export function sourceSettings(source) {
       <option value="youtube" ${source === 'youtube' ? 'selected' : ''}>YouTube Music</option>
       <option value="audius" ${source === 'audius' ? 'selected' : ''}>Audius · música independiente</option>
     </select>
-    <p>Las canciones de YouTube Music se reproducen con el reproductor de YouTube. La reproducción con el iPhone bloqueado sigue pendiente.</p>
+    <p>Reproducción de audio mediante la fuente de Yutu. La disponibilidad de las canciones depende del servidor de música.</p>
     <p class="form-error" role="alert"></p>
     <button class="primary" type="submit">Guardar ajustes</button>
-    <small>Espotifay 1.1.0</small>
+    <small>Espotifay 1.2.0</small>
   </form>`
 }
 

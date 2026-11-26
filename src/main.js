@@ -377,7 +377,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register(base + 'sw.js').then(registration => {
     function check() {
       registration.update().catch(() => {})
-      if (registration.waiting && audio.paused) {
+      if (registration.waiting && !player.state().playing && !player.state().loading) {
         reload = Boolean(navigator.serviceWorker.controller)
         registration.waiting.postMessage('activate')
       }

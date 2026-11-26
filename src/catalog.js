@@ -55,16 +55,19 @@ export function publicArtwork(url) {
   } catch { return '' }
 }
 
-export async function stream(track, endpoint) {
+export async function stream(track) {
   if (track.source === 'audius') return `${audiusBase}/tracks/${encodeURIComponent(track.id)}/stream`
-  if (!endpoint) throw Error('Configura el servidor de YouTube Music desde Ajustes.')
-  const id = encodeURIComponent(track.id)
-  const info = await json(`${endpoint}/api/v1/videos/${id}?local=true`)
-  const formats = (info.adaptiveFormats || [])
-    .filter(format => (format.type || format.mimeType || '').startsWith('audio/mp4'))
-    .sort((a, b) => Number(b.bitrate) - Number(a.bitrate))
-  if (!formats.length) throw Error('Esta pista no ofrece un formato de audio compatible con el iPhone.')
-  const url = new URL(formats[0].url, endpoint)
-  if (url.protocol !== 'https:') throw Error('El servidor devolvió un enlace de audio inválido.')
-  return url.href
+  try {
+    const data = await json('https://yt.chocolatemoo53.com/api/v1/videos/' +
+      encodeURIComponent(track.id) + '?local=true', AbortSignal.timeout(6000))
+    const format = (data.adaptiveFormats || [])
+      .filter(item => (item.type || '').startsWith('audio/mp4'))
+      .sort((a, b) => Number(b.bitrate) - Number(a.bitrate))[0]
+    if (format?.url) {
+      const url = new URL(format.url, 'https://yt.chocolatemoo53.com')
+      if (url.protocol === 'https:' && (url.hostname === 'yt.chocolatemoo53.com' ||
+          url.hostname.endsWith('.googlevideo.com'))) return url.href
+    }
+  } catch { /* Try the server transport when direct access is unavailable. */ }
+  return 'https://espotifay-catalog-vercel-fran.vercel.app/api/media?id=' + encodeURIComponent(track.id)
 }
