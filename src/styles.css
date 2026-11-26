@@ -250,9 +250,9 @@ dialog::backdrop{background:#08080acb}
 .now-content{gap:20px}
 .now-info{margin-top:5px}
 .now-info h3{font-size:26px}
-.is-loading svg{opacity:.35}
+.is-loading svg{visibility:hidden}
 .is-loading{position:relative}
-.is-loading:after{content:"";position:absolute;inset:8px;border:2px solid #102c1770;border-top-color:#102c17;border-radius:50%;animation:loading-turn .8s linear infinite}
+.is-loading:after{content:"";position:absolute;inset:50% auto auto 50%;width:20px;height:20px;margin:-10px 0 0 -10px;border:2px solid #1ed76035;border-top-color:#1ed760;border-right-color:#1ed760;border-radius:50%;animation:loading-turn .8s linear infinite}
 @keyframes loading-turn{to{transform:rotate(360deg)}}
 @media(max-width:760px), (pointer:coarse) and (max-height:550px){
  .topbar{padding-bottom:7px}
@@ -304,7 +304,7 @@ dialog::backdrop{background:#08080acb}
  .cards.album-shelf{grid-auto-columns:minmax(160px,205px)}
  .player-shell{padding-bottom:10px}
 }
-@media(prefers-reduced-motion:reduce){.is-loading:after{animation:none}}
+
 
 .mini-open{position:absolute;inset:0;width:100%;height:100%;border-radius:inherit;z-index:0}
 .mini-open:focus-visible{outline-offset:-3px}
@@ -323,5 +323,3 @@ dialog::backdrop{background:#08080acb}
 #player{touch-action:pan-y}
 #player.is-sliding{will-change:transform,opacity}
 .transport .play-button.is-loading{background:transparent!important;opacity:1;pointer-events:none!important}
-.is-loading svg{visibility:hidden}
-.is-loading:after{inset:50% auto auto 50%;width:20px;height:20px;margin:-10px 0 0 -10px;border:2px solid #1ed76035;border-top-color:#1ed760;border-right-color:#1ed760;border-radius:50%}

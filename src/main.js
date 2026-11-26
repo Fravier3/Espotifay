@@ -139,6 +139,7 @@ function schedulePreparation() {
   warmTimer = setTimeout(async () => {
     const bounds = $('#view').getBoundingClientRect()
     const current = player.state().track
+    const seen = new Set()
     const visible = [...$('#view').querySelectorAll('[data-action="play"]')]
       .filter(element => {
         const rect = element.getBoundingClientRect()
@@ -146,12 +147,23 @@ function schedulePreparation() {
       })
       .map(element => list[Number(element.dataset.index)])
       .filter(item => item && (!current || key(item) !== key(current)))
-      .slice(0, 2)
-    for (const item of visible) {
-      if (generation !== warmGeneration) return
-      await player.prepare(item)
+      .filter(item => {
+        const id = key(item)
+        if (seen.has(id)) return false
+        seen.add(id)
+        return true
+      })
+      .slice(0, 8)
+    let cursor = 0
+    async function worker() {
+      while (cursor < visible.length) {
+        if (generation !== warmGeneration || player.state().loading) return
+        const item = visible[cursor++]
+        await player.prepare(item)
+      }
     }
-  }, 250)
+    await Promise.all([worker(), worker()])
+  }, 150)
 }
 $('#view').addEventListener('scroll', schedulePreparation, { passive: true })
 
