@@ -1,13 +1,15 @@
+import { artworkSources } from './artwork.js'
 import { button, icon } from './icons.js'
-import { key, publicArtwork, providers } from './catalog.js'
+import { key, providers } from './catalog.js'
 
 export const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 })[char])
 
 export function cover(track, className = '') {
-  const src = publicArtwork(track?.image)
-  return `<div class="cover ${className}">${icon('music')}${src ? `<img src="${escape(src)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}</div>`
+  const [src, ...fallbacks] = artworkSources(track)
+  const prominent = /now-art|hero-art/.test(className)
+  return `<div class="cover ${className}">${icon('music')}${src ? `<img src="${escape(src)}" data-fallbacks="${escape(JSON.stringify(fallbacks))}" alt="" width="1200" height="1200" loading="${prominent ? 'eager' : 'lazy'}" decoding="async" fetchpriority="${prominent ? 'high' : 'auto'}" referrerpolicy="no-referrer">` : ''}</div>`
 }
 
 export function time(seconds) {
@@ -15,26 +17,26 @@ export function time(seconds) {
   return Math.floor(seconds / 60) + ':' + String(Math.floor(seconds % 60)).padStart(2, '0')
 }
 const navItems = [
-  ['home', 'Inicio'], ['search', 'Buscar'], ['library', 'Tu biblioteca'], ['queue', 'Cola']
+  ['home', 'Inicio'], ['search', 'Buscar'], ['library', 'Biblioteca'], ['create', 'Crear']
 ]
 function nav() {
   return navItems.map(([id, label]) =>
-    `<button class="nav-link" data-action="nav" data-view="${id}">${icon(id)}<span>${label}</span></button>`
+    `<button class="nav-link" data-action="${id === 'create' ? 'create' : 'nav'}" data-view="${id}">${icon(id === 'create' ? 'add' : id)}<span>${label}</span></button>`
   ).join('')
 }
 
 export function shell(base) {
   return `
     <aside class="rail">
-      <button class="brand" data-action="nav" data-view="home"><img src="${base}icons/espotifay.svg" alt="">Espotifay</button>
+      <button class="brand" data-action="nav" data-view="home"><img src="${base}icons/espotifay-logo.webp" alt="">Espotifay</button>
       <nav aria-label="Principal">${nav()}</nav>
       <div class="rail-lists"><div class="rail-label"><span>Playlists</span>${button('add', 'Crear playlist', 'create')}</div><div id="side-lists"></div></div>
     </aside>
     <div class="workspace">
       <header class="topbar">
-        <button class="brand mobile-brand" data-action="nav" data-view="home"><img src="${base}icons/espotifay.svg" alt="">Espotifay</button>
+        <button class="brand mobile-brand" data-action="nav" data-view="home"><img src="${base}icons/espotifay-logo.webp" alt="">Espotifay</button>
         <button class="quick-search" data-action="nav" data-view="search">${icon('search')}<span>Busca una canción o artista</span></button>
-        <div class="top-actions"><button class="source-pill" data-action="settings" id="source"></button>${button('settings', 'Ajustes', 'settings')}</div>
+        <div class="top-actions"><span id="source" hidden></span>${button('settings', 'Ajustes', 'settings')}</div>
       </header>
       <main id="view" tabindex="-1"></main>
     </div>
@@ -59,8 +61,8 @@ export function row(track, position, playingKey, liked = false, action = 'play',
     ${button(trailing === 'remove-queue' ? 'close' : 'more', trailing === 'remove-queue' ? 'Quitar de la cola' : 'Opciones de la canción', trailing, `data-index="${position}"`)}
   </div>`
 }
-export function cards(list) {
-  return list.map((track, index) => `<button class="card" data-action="play" data-index="${index}">
+export function cards(list, offset = 0) {
+  return list.map((track, localIndex) => `<button class="card" data-action="play" data-index="${localIndex + offset}">
     <div class="card-image">${cover(track)}<span class="card-play">${icon('play')}</span></div>
     <strong>${escape(track.title)}</strong><small>${escape(track.artist)}</small>
   </button>`).join('')
@@ -71,7 +73,7 @@ export function controls(play) {
   return `<div class="transport">
     ${button('shuffle', 'Aleatorio', 'shuffle', `aria-pressed="${shuffle}"`)}
     ${button('prev', 'Anterior', 'prev', track ? '' : 'disabled')}
-    ${button(playing ? 'pause' : 'play', loading ? 'Cargando' : playing ? 'Pausar' : 'Reproducir', 'toggle', track && !loading ? '' : 'disabled', 'play-button')}
+    ${button(playing ? 'pause' : 'play', loading ? 'Cargando' : playing ? 'Pausar' : 'Reproducir', 'toggle', track && !loading ? '' : 'disabled', loading ? 'play-button is-loading' : 'play-button')}
     ${button('next', 'Siguiente', 'next', track ? '' : 'disabled')}
     ${button('repeat', 'Repetir cola', 'repeat', `aria-pressed="${repeat}"`)}
   </div>`
@@ -90,7 +92,7 @@ export function sourceSettings(source) {
     <p>Reproducción de audio mediante la fuente de Yutu. La disponibilidad de las canciones depende del servidor de música.</p>
     <p class="form-error" role="alert"></p>
     <button class="primary" type="submit">Guardar ajustes</button>
-    <small>Espotifay 1.2.0</small>
+    <small>Espotifay 1.3.0</small>
   </form>`
 }
 

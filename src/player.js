@@ -1,4 +1,5 @@
-import { key, publicArtwork, stream } from './catalog.js'
+import { artworkSources } from './artwork.js'
+import { key, stream, forgetStream } from './catalog.js'
 
 export function nextIndex(index, total, direction, { repeat, shuffle }, random = Math.random) {
   if (!total) return -1
@@ -16,28 +17,16 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
   let loadedKey = ''
   let shuffle = false
   let repeat = false
-  let prepared = new Map()
   const track = () => queue[index]
   const state = () => ({ queue, index, track: track(), playing: !audio.paused && !loading, loading, shuffle, repeat })
 
   function resolve(item) {
-    const id = key(item)
-    if (!prepared.has(id)) {
-      const entry = stream(item, endpoint()).then(url => {
-        prepared.set(id, url)
-        return url
-      }).catch(error => {
-        prepared.delete(id)
-        throw error
-      })
-      prepared.set(id, entry)
-    }
-    return prepared.get(id)
+    return stream(item)
   }
 
   function syncMedia(item) {
     if (!('mediaSession' in navigator) || !('MediaMetadata' in window)) return
-    const src = publicArtwork(item.image)
+    const src = artworkSources(item)[0]
     navigator.mediaSession.metadata = new MediaMetadata({
       title: item.title,
       artist: item.artist,
@@ -51,6 +40,8 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     index = position
     loading = true
     audio.pause()
+    audio.removeAttribute('src')
+    audio.load()
     const item = track()
     change()
     try {
@@ -61,12 +52,15 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
       loadedKey = key(item)
       syncMedia(item)
       try { if (navigator.audioSession) navigator.audioSession.type = 'playback' } catch { /* Optional platform hint. */ }
+      if (queue[index + 1]) Promise.resolve(resolve(queue[index + 1])).catch(() => {})
       await audio.play()
       if (serial !== request) return
       onTrack(item)
-      if (queue[index + 1]) resolve(queue[index + 1]).catch(() => {})
     } catch (error) {
-      if (serial === request) failure(item.source === 'youtube' ? 'La fuente de audio de Yutu no pudo entregar esta canción. Intenta más tarde.' : error.message || 'No se pudo reproducir esta canción.')
+      if (serial === request) {
+        forgetStream(item)
+        failure(item.source === 'youtube' ? 'La fuente de audio de Yutu no pudo entregar esta canción. Intenta más tarde.' : error.message || 'No se pudo reproducir esta canción.')
+      }
     } finally {
       if (serial === request) {
         loading = false
@@ -92,7 +86,7 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     if (!track() || loading) return
     if (audio.paused) {
       if (loadedKey !== key(track()) || audio.error) {
-        prepared.delete(key(track()))
+        forgetStream(track())
         return select(index)
       }
       try {
@@ -122,6 +116,7 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
   }
   return {
     state, select, toggle, advance,
+    prepare(item) { Promise.resolve(resolve(item)).catch(() => {}) },
     duration: () => audio.duration,
     currentTime: () => audio.currentTime,
     seek(seconds) {
@@ -129,7 +124,6 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     },
     volume(value) { audio.volume = value },
     start(item, list) {
-      prepared = new Map()
       queue = list.slice()
       let position = queue.findIndex(entry => key(entry) === key(item))
       if (position < 0) { position = queue.length; queue.push(item) }

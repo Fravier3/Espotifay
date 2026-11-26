@@ -1,4 +1,7 @@
 import './styles.css'
+import { loadNextArtwork } from './artwork.js'
+import { explore } from './discovery.js'
+import { libraryView } from './library.js'
 import { key, tracks } from './catalog.js'
 import { createPlayer } from './player.js'
 import { button, icon } from './icons.js'
@@ -14,9 +17,14 @@ const prefs = {
   endpoint: typeof data.endpoint === 'string' ? data.endpoint : '',
   favorites: Array.isArray(data.favorites) ? data.favorites : [],
   playlists: Array.isArray(data.playlists) ? data.playlists : [],
-  recent: Array.isArray(data.recent) ? data.recent : []
+  recent: Array.isArray(data.recent) ? data.recent : [],
+  artists: Array.isArray(data.artists) ? data.artists : [],
+  libraryOrder: data.libraryOrder === 'name' ? 'name' : 'recent',
+  libraryLayout: data.libraryLayout === 'grid' ? 'grid' : 'list'
 }
 let view = 'home'
+let libraryFilter = 'all'
+let homeQuery = ''
 let activePlaylist = ''
 let list = []
 let discover = []
@@ -79,13 +87,6 @@ function rows(items) {
   const current = player.state().track
   return items.map((item, index) => row(item, index, current && key(current), isFavorite(item))).join('')
 }
-function libraryCards() {
-  return [
-    ['favorites', 'Favoritas', 'heart', prefs.favorites.length], ['recent', 'Historial', 'clock', prefs.recent.length],
-    ...prefs.playlists.map(item => [item.id, item.name, 'music', item.tracks.length])
-  ].map(([id, title, mark, size]) => `<button class="collection" data-action="open-list" data-id="${escape(id)}">
-    <span class="collection-icon mark-${mark}">${icon(mark)}</span><span><strong>${escape(title)}</strong><small>${songCount(size)}</small></span>${icon('arrow')}</button>`).join('')
-}
 function listStatus(items, status) {
   return items.length ? rows(items) : empty(status)
 }
@@ -94,29 +95,24 @@ function render() {
   const el = $('#view')
   if (view === 'home') {
     list = discover
-    const hero = list[0]
-    el.innerHTML = `<div class="content">
-      <section class="hero ${hero ? '' : 'hero-empty'}">
-        <div class="hero-copy">
-          <span class="eyebrow">${icon('music')} ${hero ? 'Destacado' : providers[prefs.provider]}</span>
-          <h1>${escape(hero?.title || 'Escucha algo nuevo')}</h1>
-          <p>${escape(hero?.artist || 'Explora canciones, guarda tus favoritas y arma tu propia cola.')}</p>
-          <button class="primary" data-action="${hero ? 'play' : 'nav'}" data-index="0" data-view="search">${icon(hero ? 'play' : 'search')}${hero ? 'Reproducir' : 'Buscar música'}</button>
-        </div>${hero ? cover(hero, 'hero-art') : '<div class="hero-disc" aria-hidden="true">' + icon('music') + '</div>'}
-      </section>
-      <section class="section"><div class="section-head"><h2>${prefs.provider === 'youtube' ? 'Para descubrir' : 'En tendencia'}</h2><span>${providers[prefs.provider]}</span></div>
-        ${list.length ? `<div class="cards">${cards(list.slice(0, 6))}</div>` : empty(discoverStatus)}
-      </section>
-      ${list.length ? `<section class="section"><div class="section-head"><h2>Más para escuchar</h2></div><div class="track-list">${rows(list)}</div></section>` : ''}
+    el.innerHTML = `<div class="content home-content">
+      <div class="home-heading"><h1>Escucha a tu ritmo</h1><button class="text-button" data-action="open-list" data-id="recent">${icon('clock')}Historial</button></div>
+      <div class="filter-tabs" aria-label="Descubrir música">${[['', 'Para ti'], ['novedades música latina', 'Novedades'], ['reggaeton urbano latino', 'Latino']].map(([value, label]) =>
+        `<button data-action="home-filter" data-query="${value}" aria-pressed="${homeQuery === value}">${label}</button>`).join('')}</div>
+      <div class="quick-collections"><button data-action="open-list" data-id="favorites"><span class="mini-mark">${icon('heart')}</span>Favoritas</button><button data-action="open-list" data-id="recent"><span class="mini-mark">${icon('clock')}</span>Últimas escuchas</button></div>
+      <section class="section"><div class="section-head"><h2>Empieza por aquí</h2>${button('search', 'Buscar música', 'library-search')}</div>
+        <div class="start-list">${list.length ? rows(list.slice(0, 3)) : empty(discoverStatus)}</div></section>
+      ${list.length ? `<section class="section"><div class="section-head"><h2>En tu frecuencia</h2></div><div class="cards album-shelf">${cards(list.slice(3, 12), 3)}</div></section>
+      <section class="section"><div class="section-head"><h2>Más para descubrir</h2></div><div class="cards album-shelf">${cards(list.slice(12), 12)}</div></section>` : ''}
     </div>`
   } else if (view === 'search') {
     list = results
-    el.innerHTML = `<div class="content"><div class="page-heading"><h1>Buscar</h1><p>${providers[prefs.provider]}</p></div>
-      <form id="search-form" class="search-form">${icon('search')}<input id="catalog-search" type="search" placeholder="Canción o artista" aria-label="Canción o artista" value="${escape(query)}" autocomplete="off"><button class="primary" type="submit">Buscar</button></form>
-      <div class="track-list search-results" id="search-results" aria-live="polite">${listStatus(list, searchStatus)}</div></div>`
+    el.innerHTML = `<div class="content"><div class="page-heading"><h1>Buscar</h1></div>
+      <form id="search-form" class="search-form">${icon('search')}<input id="catalog-search" type="search" placeholder="¿Qué quieres escuchar?" aria-label="Canción o artista" value="${escape(query)}" autocomplete="off"><button class="primary" type="submit">Buscar</button></form>
+      <div class="search-results" id="search-results" aria-live="polite">${query.trim() ? listStatus(list, searchStatus) : explore(discover)}</div></div>`
   } else if (view === 'library') {
     list = []
-    el.innerHTML = `<div class="content"><div class="page-heading with-action"><div><h1>Tu biblioteca</h1><p>Guardada en este dispositivo</p></div><button class="primary" data-action="create">${icon('add')}Crear playlist</button></div><div class="collections">${libraryCards()}</div></div>`
+    el.innerHTML = libraryView(prefs, libraryFilter, prefs.libraryOrder, prefs.libraryLayout)
   } else if (view === 'playlist') {
     const collection = activePlaylist === 'favorites' ? { name: 'Favoritas', tracks: prefs.favorites } :
       activePlaylist === 'recent' ? { name: 'Historial', tracks: prefs.recent } : prefs.playlists.find(p => p.id === activePlaylist)
@@ -139,6 +135,8 @@ function renderQueue() {
 }
 
 function updateProgress(duration = player.duration(), elapsed = player.currentTime()) {
+  const percent = Number.isFinite(duration) && duration > 0 ? elapsed / duration * 100 : 0
+  if ($('#mini-progress-fill')) $('#mini-progress-fill').style.width = Math.min(100, percent) + '%'
   document.querySelectorAll('[data-time]').forEach(node => { node.textContent = time(elapsed) })
   document.querySelectorAll('[data-total]').forEach(node => { node.textContent = time(duration) })
   document.querySelectorAll('[data-range="seek"]').forEach(node => {
@@ -157,6 +155,7 @@ function updatePlayer() {
     ${item ? button('heart', 'Favorito', 'favorite-current', `aria-pressed="${isFavorite(item)}"`) : ''}
   </div><div class="center-controls">${controls(play)}${timeline(!item)}</div>
   <div class="player-tools">${button('queue', 'Ver cola', 'show-queue')}${icon('volume')}<input aria-label="Volumen" type="range" data-range="volume" min="0" max="1" step="0.05" value="${audio.volume}"></div>`
+  $('#player').insertAdjacentHTML('beforeend', '<div class="mini-progress" role="presentation"><span id="mini-progress-fill"></span></div>')
   updateProgress()
   if (view === 'queue') renderQueue()
   if (modal === 'now' && dialog.open) renderNow()
@@ -187,6 +186,7 @@ function trackMenu(item) {
     <button data-action="favorite">${icon('heart')}${isFavorite(item) ? 'Quitar de favoritas' : 'Guardar en favoritas'}</button>
     <button data-action="enqueue">${icon('queue')}Añadir a la cola</button>
     <button data-action="choose-list">${icon('add')}Añadir a playlist</button>
+    <button data-action="save-artist">${icon('library')}Guardar artista</button>
     ${customList ? '<button data-action="remove-list-track">' + icon('close') + 'Quitar de esta playlist</button>' : ''}
   </div>`)
 }
@@ -205,7 +205,7 @@ async function refreshDiscover() {
   discoverStatus = 'Cargando música…'
   if (view === 'home') render()
   try {
-    const incoming = await tracks(provider, endpoint)
+    const incoming = await tracks(provider, endpoint, homeQuery)
     if (prefs.provider !== provider || prefs.endpoint !== endpoint) return
     discover = incoming
     discoverStatus = 'El catálogo no tiene canciones para mostrar.'
@@ -223,7 +223,7 @@ async function search() {
   const update = () => {
     if (view === 'search') {
       list = results
-      $('#search-results').innerHTML = listStatus(results, searchStatus)
+      $('#search-results').innerHTML = query.trim() ? listStatus(results, searchStatus) : explore(discover)
     }
   }
   update()
@@ -255,7 +255,7 @@ function toggleFavorite(item) {
 }
 
 document.addEventListener('error', event => {
-  if (event.target.matches?.('.cover img')) event.target.classList.add('broken')
+  if (event.target.matches?.('.cover img')) loadNextArtwork(event.target)
 }, true)
 
 dialog.addEventListener('close', () => {
@@ -308,6 +308,12 @@ document.addEventListener('submit', event => {
     render()
   }
 })
+for (const type of ['pointerover', 'pointerdown', 'focusin']) {
+  document.addEventListener(type, event => {
+    const target = event.target.closest('[data-action="play"]')
+    if (target && list[Number(target.dataset.index)]) player.prepare(list[Number(target.dataset.index)])
+  }, { passive: true })
+}
 document.addEventListener('click', event => {
   const target = event.target.closest('[data-action]')
   if (!target) return
@@ -315,6 +321,25 @@ document.addEventListener('click', event => {
   const index = Number(target.dataset.index)
   const item = list[index]
   switch (action) {
+    case 'library-search': setView('search'); break
+    case 'library-filter': libraryFilter = target.dataset.filter; render(); break
+    case 'library-sort': prefs.libraryOrder = prefs.libraryOrder === 'name' ? 'recent' : 'name'; persist(); render(); break
+    case 'library-layout': prefs.libraryLayout = prefs.libraryLayout === 'grid' ? 'list' : 'grid'; persist(); render(); break
+    case 'browse':
+    case 'artist-search':
+      query = target.dataset.query || target.dataset.name
+      setView('search'); search(); break
+    case 'home-filter':
+      homeQuery = target.dataset.query
+      refreshDiscover(); break
+    case 'save-artist':
+      if (selected?.artist) {
+        const exists = prefs.artists.some(artist => artist.name === selected.artist)
+        if (!exists) prefs.artists.unshift({ name: selected.artist, image: selected.image, source: selected.source, id: selected.id })
+        persist()
+        notify(exists ? 'Este artista ya está guardado' : 'Artista guardado en tu biblioteca')
+      }
+      dialog.close(); break
     case 'nav': setView(target.dataset.view); break
     case 'open-list': setView('playlist', id); break
     case 'play': if (item) player.start(item, list); break

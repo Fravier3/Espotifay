@@ -15,10 +15,10 @@ export default async function handler(req, res) {
   const tracks=songs.filter(s=>/^[\w-]{11}$/.test(s.id||'')).map(s=>({
     id:s.id,source:'youtube',title:String(s.title||''),
     artist:s.artists?.map(a=>a.name).join(', ') || String(s.author?.name||''),
-    image:s.thumbnail?.contents?.at(-1)?.url || s.thumbnails?.at(-1)?.url || '',
+    image:[...(s.thumbnail?.contents || s.thumbnails || [])].sort((a,b)=>(b.width||0)-(a.width||0))[0]?.url || '',
     duration:s.duration?.seconds||0
   }))
   res.setHeader('Cache-Control','public, s-maxage=300, stale-while-revalidate=600')
   res.json({tracks})
- }catch(e){client=undefined;console.error('Music catalog',e.message);res.status(502).json({error:'YouTube Music no respondió. Intenta nuevamente.'})}
+ }catch(e){client=undefined;console.error('Music catalog',e.message);res.status(502).json({error:'Espotifay no respondió. Intenta nuevamente.'})}
 }

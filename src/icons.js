@@ -1,4 +1,6 @@
 const icons = {
+  grid: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+  sort: '<path d="M6 3v18m-3-3 3 3 3-3M13 6h8m-8 6h6m-6 6h4"/>',
   home: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
   search: '<circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/>',
   library: '<path d="M4 4v16M9 4v16m5-15 5 14"/>',

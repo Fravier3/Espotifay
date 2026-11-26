@@ -55,11 +55,37 @@ export function publicArtwork(url) {
   } catch { return '' }
 }
 
-export async function stream(track) {
+const streams = new Map()
+let directUnavailableUntil = 0
+
+export function forgetStream(track) {
+  streams.delete(key(track))
+}
+
+export function stream(track) {
   if (track.source === 'audius') return `${audiusBase}/tracks/${encodeURIComponent(track.id)}/stream`
+  const id = key(track)
+  const cached = streams.get(id)
+  if (cached && cached.expires > Date.now()) return cached.value
+  const pending = resolveYouTubeAudio(track).then(url => {
+    streams.set(id, { value: url, expires: Date.now() + 180000 })
+    return url
+  }).catch(error => {
+    streams.delete(id)
+    throw error
+  })
+  if (streams.size > 32) streams.delete(streams.keys().next().value)
+  streams.set(id, { value: pending, expires: Date.now() + 180000 })
+  return pending
+}
+
+async function resolveYouTubeAudio(track) {
+  if (directUnavailableUntil > Date.now()) {
+    return 'https://espotifay-catalog-vercel-fran.vercel.app/api/media?id=' + encodeURIComponent(track.id)
+  }
   try {
     const data = await json('https://yt.chocolatemoo53.com/api/v1/videos/' +
-      encodeURIComponent(track.id) + '?local=true', AbortSignal.timeout(6000))
+      encodeURIComponent(track.id) + '?local=true', AbortSignal.timeout(1800))
     const format = (data.adaptiveFormats || [])
       .filter(item => (item.type || '').startsWith('audio/mp4'))
       .sort((a, b) => Number(b.bitrate) - Number(a.bitrate))[0]
@@ -68,6 +94,8 @@ export async function stream(track) {
       if (url.protocol === 'https:' && (url.hostname === 'yt.chocolatemoo53.com' ||
           url.hostname.endsWith('.googlevideo.com'))) return url.href
     }
-  } catch { /* Try the server transport when direct access is unavailable. */ }
+  } catch {
+    directUnavailableUntil = Date.now() + 45000
+  }
   return 'https://espotifay-catalog-vercel-fran.vercel.app/api/media?id=' + encodeURIComponent(track.id)
 }
