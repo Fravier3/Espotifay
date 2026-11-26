@@ -134,7 +134,7 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
   }
   return {
     state, select, toggle, advance,
-    prepare(item) { Promise.resolve(resolve(item)).catch(() => {}) },
+    prepare(item) { return Promise.resolve(resolve(item)).catch(() => {}) },
     duration: () => loading ? 0 : audio.duration,
     currentTime: () => loading ? 0 : audio.currentTime,
     seek(seconds) {

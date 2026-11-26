@@ -9,7 +9,7 @@ export const escape = value => String(value ?? '').replace(/[&<>"']/g, char => (
 export function cover(track, className = '') {
   const [src, ...fallbacks] = artworkSources(track)
   const prominent = /now-art|hero-art/.test(className)
-  return `<div class="cover ${className}">${icon('music')}${src ? `<img src="${escape(src)}" data-fallbacks="${escape(JSON.stringify(fallbacks))}" alt="" width="1200" height="1200" loading="${prominent ? 'eager' : 'lazy'}" decoding="async" fetchpriority="${prominent ? 'high' : 'auto'}" referrerpolicy="no-referrer">` : ''}</div>`
+  return `<div class="cover ${className}">${icon('music')}${src ? `<img src="${escape(src)}" data-fallbacks="${escape(JSON.stringify(fallbacks))}" alt="" draggable="false" width="1200" height="1200" loading="${prominent ? 'eager' : 'lazy'}" decoding="async" fetchpriority="${prominent ? 'high' : 'auto'}" referrerpolicy="no-referrer">` : ''}</div>`
 }
 
 export function time(seconds) {
@@ -92,7 +92,7 @@ export function sourceSettings(source) {
     <p>Reproducción de audio mediante la fuente de Yutu. La disponibilidad de las canciones depende del servidor de música.</p>
     <p class="form-error" role="alert"></p>
     <button class="primary" type="submit">Guardar ajustes</button>
-    <small>Espotifay 1.3.1</small>
+    <small>Espotifay 1.4.0</small>
   </form>`
 }
 

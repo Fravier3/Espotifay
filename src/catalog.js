@@ -56,6 +56,18 @@ export function publicArtwork(url) {
 }
 
 const streams = new Map()
+const connectedOrigins = new Set()
+
+function preconnectAudio(url) {
+  if (typeof document === 'undefined') return
+  const origin = new URL(url).origin
+  if (connectedOrigins.has(origin) || connectedOrigins.size >= 4) return
+  connectedOrigins.add(origin)
+  const link = document.createElement('link')
+  link.rel = 'preconnect'
+  link.href = origin
+  document.head.append(link)
+}
 
 export function forgetStream(track) {
   streams.delete(key(track))
@@ -71,6 +83,7 @@ export function stream(track) {
       streams.delete(id)
     } else {
       streams.set(id, { value: url, expires: Date.now() + 120000 })
+      preconnectAudio(url)
     }
     return url
   }).catch(error => {

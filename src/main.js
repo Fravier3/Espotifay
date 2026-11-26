@@ -4,6 +4,7 @@ import { explore } from './discovery.js'
 import { libraryView } from './library.js'
 import { key, tracks } from './catalog.js'
 import { createPlayer } from './player.js'
+import { attachSwipeDismiss } from './swipe-dismiss.js'
 import { button, icon } from './icons.js'
 import { load, save } from './storage.js'
 import { cards, controls, cover, empty, escape, providers, row, shell, sourceSettings, time, timeline } from './views.js'
@@ -38,10 +39,13 @@ let debounce
 let toastTimer
 let modal = ''
 let priorFocus
+let warmTimer
+let warmGeneration = 0
 const audio = $('#audio')
 
 $('#app').innerHTML = shell(base)
 const dialog = $('#dialog')
+attachSwipeDismiss(dialog)
 const player = createPlayer(audio, {
   endpoint: () => prefs.endpoint,
   change: updatePlayer,
@@ -124,7 +128,31 @@ function render() {
       <div class="inline">${list.length ? '<button class="primary" data-action="play" data-index="0">' + icon('play') + 'Reproducir</button>' : ''}
       ${custom ? button('more', 'Editar playlist', 'playlist-options') : ''}</div></div><div class="track-list">${listStatus(list, 'Todavía no hay canciones aquí.')}</div></div>`
   } else renderQueue()
+  schedulePreparation()
 }
+function schedulePreparation() {
+  clearTimeout(warmTimer)
+  const generation = ++warmGeneration
+  if (navigator.connection?.saveData) return
+  warmTimer = setTimeout(async () => {
+    const bounds = $('#view').getBoundingClientRect()
+    const current = player.state().track
+    const visible = [...$('#view').querySelectorAll('[data-action="play"]')]
+      .filter(element => {
+        const rect = element.getBoundingClientRect()
+        return rect.bottom > bounds.top && rect.top < bounds.bottom
+      })
+      .map(element => list[Number(element.dataset.index)])
+      .filter(item => item && (!current || key(item) !== key(current)))
+      .slice(0, 2)
+    for (const item of visible) {
+      if (generation !== warmGeneration) return
+      await player.prepare(item)
+    }
+  }, 250)
+}
+$('#view').addEventListener('scroll', schedulePreparation, { passive: true })
+
 function renderQueue() {
   const play = player.state()
   const current = play.track
@@ -166,7 +194,10 @@ function openModal(name, title, content, className = '') {
   modal = name
   dialog.className = className
   dialog.setAttribute('aria-label', title)
-  dialog.innerHTML = `<div class="dialog-head"><h2>${escape(title)}</h2>${button('close', 'Cerrar', 'close')}</div>${content}`
+  const header = name === 'now' ?
+    `<button class="player-dismiss" data-action="close" aria-label="Cerrar reproductor"><span aria-hidden="true"></span></button><div class="dialog-head"><h2>${escape(title)}</h2></div>` :
+    `<div class="dialog-head"><h2>${escape(title)}</h2>${button('close', 'Cerrar', 'close')}</div>`
+  dialog.innerHTML = header + content
   if (!wasOpen) dialog.showModal()
 }
 function renderNow() {
@@ -224,6 +255,7 @@ async function search() {
     if (view === 'search') {
       list = results
       $('#search-results').innerHTML = query.trim() ? listStatus(results, searchStatus) : explore(discover)
+      schedulePreparation()
     }
   }
   update()

@@ -311,3 +311,10 @@ dialog::backdrop{background:#08080acb}
 #player>.now,#player>.center-controls,#player>.player-tools{position:relative;z-index:1;pointer-events:none}
 #player button,#player input{pointer-events:auto}
 #player .mini-progress{pointer-events:none}
+.player-dismiss{display:flex;align-items:center;justify-content:center;width:72px;height:34px;margin:-12px auto 4px;touch-action:pan-x}
+.player-dismiss>span{width:40px;height:4px;border-radius:8px;background:#e8f7ed85}
+.full-player .dialog-head{justify-content:center;touch-action:pan-x}
+.full-player .dialog-head h2{font-size:17px}
+.full-player .now-art{touch-action:pan-x;user-select:none;-webkit-user-select:none}
+.full-player .now-art img{-webkit-user-drag:none}
+.full-player.is-dragging{will-change:transform}
