@@ -83,10 +83,10 @@ export function timeline(disabled) {
 export function sourceSettings(source, endpoint) {
   return `<form id="settings-form" class="dialog-form">
     <label for="catalog">Catálogo activo</label>
-    <select id="catalog" name="catalog"><option value="audius" ${source === 'audius' ? 'selected' : ''}>Audius · música independiente</option><option value="youtube" ${source === 'youtube' ? 'selected' : ''}>YouTube Music · servidor externo</option></select>
+    <select id="catalog" name="catalog"><option value="audius" ${source === 'audius' ? 'selected' : ''}>Audius · música independiente</option><option value="youtube" ${source === 'youtube' ? 'selected' : ''}>YouTube · servidor Invidious</option></select>
     <label for="endpoint">Servidor Invidious</label>
     <input type="url" id="endpoint" name="endpoint" placeholder="https://tu-instancia.example" value="${escape(endpoint)}">
-    <p>Youtube Music busca coincidencias en YouTube usando tu instancia. Audius está listo para usar sin cuenta.</p>
+    <p>Invidious busca canciones en YouTube desde la instancia que configures. Audius funciona sin cuenta.</p>
     <p class="form-error" role="alert"></p>
     <button class="primary" type="submit">Guardar ajustes</button>
     <small>Espotifay 1.0.0</small>

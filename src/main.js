@@ -43,6 +43,7 @@ const player = createPlayer(audio, {
     persist()
   }
 })
+const songCount = count => count === 1 ? '1 canción' : count + ' canciones'
 const isFavorite = item => prefs.favorites.some(track => key(track) === key(item))
 
 function persist() {
@@ -82,7 +83,7 @@ function libraryCards() {
     ['favorites', 'Favoritas', 'heart', prefs.favorites.length], ['recent', 'Historial', 'clock', prefs.recent.length],
     ...prefs.playlists.map(item => [item.id, item.name, 'music', item.tracks.length])
   ].map(([id, title, mark, size]) => `<button class="collection" data-action="open-list" data-id="${escape(id)}">
-    <span class="collection-icon mark-${mark}">${icon(mark)}</span><span><strong>${escape(title)}</strong><small>${size} canciones</small></span>${icon('arrow')}</button>`).join('')
+    <span class="collection-icon mark-${mark}">${icon(mark)}</span><span><strong>${escape(title)}</strong><small>${songCount(size)}</small></span>${icon('arrow')}</button>`).join('')
 }
 function listStatus(items, status) {
   return items.length ? rows(items) : empty(status)
@@ -122,7 +123,7 @@ function render() {
     const custom = Boolean(collection.id)
     list = collection.tracks
     el.innerHTML = `<div class="content"><button class="text-button" data-action="nav" data-view="library">‹ Tu biblioteca</button>
-      <div class="page-heading with-action"><div><h1>${escape(collection.name)}</h1><p>${list.length} canciones</p></div>
+      <div class="page-heading with-action"><div><h1>${escape(collection.name)}</h1><p>${songCount(list.length)}</p></div>
       <div class="inline">${list.length ? '<button class="primary" data-action="play" data-index="0">' + icon('play') + 'Reproducir</button>' : ''}
       ${custom ? button('more', 'Editar playlist', 'playlist-options') : ''}</div></div><div class="track-list">${listStatus(list, 'Todavía no hay canciones aquí.')}</div></div>`
   } else renderQueue()
@@ -131,7 +132,7 @@ function renderQueue() {
   const play = player.state()
   const current = play.track
   list = play.queue
-  $('#view').innerHTML = `<div class="content"><div class="page-heading"><h1>Cola</h1><p>${list.length} canciones</p></div>
+  $('#view').innerHTML = `<div class="content"><div class="page-heading"><h1>Cola</h1><p>${songCount(list.length)}</p></div>
     <div class="track-list">${list.length ? list.map((item, index) =>
       row(item, index, current && key(current), isFavorite(item), 'queue-play', index === play.index ? 'menu' : 'remove-queue')).join('') : empty('Reproduce una canción o agrégala a la cola.')}</div></div>`
 }

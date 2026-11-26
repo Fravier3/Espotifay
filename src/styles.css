@@ -150,7 +150,7 @@ dialog::backdrop{background:#08080acb}
 #toast{display:none;position:fixed;z-index:5;bottom:calc(104px + var(--safe-bottom));left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 26px);padding:10px 13px;background:#373038;border:1px solid #695065;border-radius:10px;box-shadow:0 8px 25px #0007;font-size:14px}
 #toast.visible{display:block}
 @media(max-width:1070px){.cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:760px){
+@media(max-width:760px), (pointer:coarse) and (max-height:550px){
   #app{grid-template-columns:minmax(0,1fr)}
   .rail{display:none}
   .mobile-brand{display:inline-flex;padding:0}
