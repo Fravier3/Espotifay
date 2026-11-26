@@ -39,6 +39,9 @@ export function attachSwipeDismiss(dialog) {
     if (shouldClose) dialog.close()
   })
 
+  dialog.addEventListener('scroll', () => {
+    dialog.classList.toggle('is-scrolled', dialog.scrollTop > 0)
+  }, { passive: true })
   dialog.addEventListener('pointercancel', reset)
   dialog.addEventListener('close', reset)
   document.addEventListener('click', event => {

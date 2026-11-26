@@ -318,3 +318,5 @@ dialog::backdrop{background:#08080acb}
 .full-player .now-art{touch-action:pan-x;user-select:none;-webkit-user-select:none}
 .full-player .now-art img{-webkit-user-drag:none}
 .full-player.is-dragging{will-change:transform}
+
+.full-player.is-scrolled .now-art{touch-action:pan-y}
