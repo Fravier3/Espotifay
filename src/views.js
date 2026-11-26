@@ -84,7 +84,7 @@ export function sourceSettings(source) {
   return `<form id="settings-form" class="dialog-form">
     <label for="catalog">Catálogo activo</label>
     <select id="catalog" name="catalog">
-      <option value="youtube" ${source === 'youtube' ? 'selected' : ''}>YouTube Music</option>
+      <option value="youtube" ${source === 'youtube' ? 'selected' : ''}>Espotifay</option>
       <option value="audius" ${source === 'audius' ? 'selected' : ''}>Audius · música independiente</option>
     </select>
     <p>Reproducción de audio mediante la fuente de Yutu. La disponibilidad de las canciones depende del servidor de música.</p>

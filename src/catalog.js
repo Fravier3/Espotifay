@@ -1,6 +1,6 @@
 export const providers = {
   audius: 'Audius',
-  youtube: 'YouTube Music'
+  youtube: 'Espotifay'
 }
 
 const audiusBase = 'https://api.audius.co/v1'
