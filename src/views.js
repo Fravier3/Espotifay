@@ -73,7 +73,7 @@ export function controls(play) {
   return `<div class="transport">
     ${button('shuffle', 'Aleatorio', 'shuffle', `aria-pressed="${shuffle}"`)}
     ${button('prev', 'Anterior', 'prev', track ? '' : 'disabled')}
-    ${button(playing ? 'pause' : 'play', loading ? 'Cargando' : playing ? 'Pausar' : 'Reproducir', 'toggle', track && !loading ? '' : 'disabled', loading ? 'play-button is-loading' : 'play-button')}
+    ${button(playing ? 'pause' : 'play', loading ? 'Cargando' : playing ? 'Pausar' : 'Reproducir', 'toggle', track && !loading ? '' : loading ? 'disabled aria-busy="true"' : 'disabled', loading ? 'play-button is-loading' : 'play-button')}
     ${button('next', 'Siguiente', 'next', track ? '' : 'disabled')}
     ${button('repeat', 'Repetir cola', 'repeat', `aria-pressed="${repeat}"`)}
   </div>`
@@ -92,7 +92,7 @@ export function sourceSettings(source) {
     <p>Reproducción de audio mediante la fuente de Yutu. La disponibilidad de las canciones depende del servidor de música.</p>
     <p class="form-error" role="alert"></p>
     <button class="primary" type="submit">Guardar ajustes</button>
-    <small>Espotifay 1.4.0</small>
+    <small>Espotifay 1.5.0</small>
   </form>`
 }
 

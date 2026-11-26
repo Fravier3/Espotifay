@@ -5,6 +5,7 @@ import { libraryView } from './library.js'
 import { key, tracks } from './catalog.js'
 import { createPlayer } from './player.js'
 import { attachSwipeDismiss } from './swipe-dismiss.js'
+import { attachMiniDismiss } from './mini-dismiss.js'
 import { button, icon } from './icons.js'
 import { load, save } from './storage.js'
 import { cards, controls, cover, empty, escape, providers, row, shell, sourceSettings, time, timeline } from './views.js'
@@ -56,6 +57,7 @@ const player = createPlayer(audio, {
     persist()
   }
 })
+attachMiniDismiss($('#player'), () => player.stop())
 const songCount = count => count === 1 ? '1 canción' : count + ' canciones'
 const isFavorite = item => prefs.favorites.some(track => key(track) === key(item))
 
@@ -178,6 +180,8 @@ function updateProgress(duration = player.duration(), elapsed = player.currentTi
 function updatePlayer() {
   const play = player.state()
   const item = play.track
+  $('#player').hidden = !item
+  if (!item && modal === 'now' && dialog.open) dialog.close()
   $('#player').innerHTML = `<button class="mini-open" data-action="now" aria-label="Abrir reproductor de la canción actual" ${item ? '' : 'disabled'}></button><div class="now">
     <button class="now-track" data-action="now" ${item ? '' : 'disabled'}>${cover(item)}<span class="track-text"><strong>${escape(item?.title || 'Nada sonando')}</strong><span>${escape(item?.artist || 'Escoge una canción para comenzar')}</span></span></button>
     ${item ? button('heart', 'Favorito', 'favorite-current', `aria-pressed="${isFavorite(item)}"`) : ''}
@@ -195,7 +199,7 @@ function openModal(name, title, content, className = '') {
   dialog.className = className
   dialog.setAttribute('aria-label', title)
   const header = name === 'now' ?
-    `<button class="player-dismiss" data-action="close" aria-label="Cerrar reproductor"><span aria-hidden="true"></span></button><div class="dialog-head"><h2>${escape(title)}</h2></div>` :
+    `<div class="dialog-head"><h2>${escape(title)}</h2></div>` :
     `<div class="dialog-head"><h2>${escape(title)}</h2>${button('close', 'Cerrar', 'close')}</div>`
   dialog.innerHTML = header + content
   if (!wasOpen) dialog.showModal()

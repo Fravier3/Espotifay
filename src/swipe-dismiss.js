@@ -10,8 +10,8 @@ export function attachSwipeDismiss(dialog) {
 
   dialog.addEventListener('pointerdown', event => {
     if (!dialog.open || !dialog.matches('.full-player') || !event.isPrimary ||
-        !event.target.closest('.dialog-head, .player-dismiss, .now-art')) return
-    if (dialog.scrollTop > 0 && !event.target.closest('.dialog-head, .player-dismiss')) return
+        !event.target.closest('.dialog-head, .now-art')) return
+    if (dialog.scrollTop > 0 && !event.target.closest('.dialog-head')) return
     gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, started: performance.now(), distance: 0 }
   })
 

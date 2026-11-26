@@ -76,6 +76,23 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
       }
     }
   }
+  function stop() {
+    serial++
+    index = -1
+    loading = false
+    hasStarted = false
+    loadedKey = ''
+    recoveryUsed = false
+    audio.pause()
+    audio.removeAttribute('src')
+    audio.load()
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = null
+      navigator.mediaSession.playbackState = 'none'
+    }
+    progress(0, 0)
+    change()
+  }
   function advance(direction, automatic = false) {
     if (direction < 0 && !automatic && audio.currentTime > 3) {
       audio.currentTime = 0
@@ -115,7 +132,7 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
       change()
     }
   })
-  audio.addEventListener('ended', () => advance(1, true))
+  audio.addEventListener('ended', () => { if (track() && loadedKey === key(track())) advance(1, true) })
   for (const type of ['playing', 'pause']) audio.addEventListener(type, () => {
     if (type === 'playing') hasStarted = true
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = hasStarted && !audio.paused ? 'playing' : 'paused'
@@ -126,14 +143,14 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
   })
   const actions = {
     play: () => { if (audio.paused) toggle() },
-    pause: () => audio.pause(), previoustrack: () => advance(-1),
+    pause: () => audio.pause(), stop, previoustrack: () => advance(-1),
     nexttrack: () => advance(1), seekto: e => { if (Number.isFinite(e.seekTime)) audio.currentTime = e.seekTime }
   }
   for (const [name, handler] of Object.entries(actions)) {
     try { navigator.mediaSession?.setActionHandler(name, handler) } catch { /* Browser action unsupported. */ }
   }
   return {
-    state, select, toggle, advance,
+    state, select, toggle, advance, stop,
     prepare(item) { return Promise.resolve(resolve(item)).catch(() => {}) },
     duration: () => loading ? 0 : audio.duration,
     currentTime: () => loading ? 0 : audio.currentTime,
