@@ -15,10 +15,12 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
   let serial = 0
   let loading = false
   let loadedKey = ''
+  let hasStarted = false
+  let recoveryUsed = false
   let shuffle = false
   let repeat = false
   const track = () => queue[index]
-  const state = () => ({ queue, index, track: track(), playing: !audio.paused && !loading, loading, shuffle, repeat })
+  const state = () => ({ queue, index, track: track(), playing: hasStarted && !audio.paused && !loading, loading, shuffle, repeat })
 
   function resolve(item) {
     return stream(item)
@@ -34,14 +36,14 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     })
   }
 
-  async function select(position) {
+  async function select(position, retry = false, resumeAt = 0) {
     if (!queue[position]) return
     const request = ++serial
     index = position
     loading = true
+    hasStarted = false
+    recoveryUsed = retry
     audio.pause()
-    audio.removeAttribute('src')
-    audio.load()
     const item = track()
     change()
     try {
@@ -52,14 +54,20 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
       loadedKey = key(item)
       syncMedia(item)
       try { if (navigator.audioSession) navigator.audioSession.type = 'playback' } catch { /* Optional platform hint. */ }
-      if (queue[index + 1]) Promise.resolve(resolve(queue[index + 1])).catch(() => {})
       await audio.play()
       if (serial !== request) return
+      hasStarted = true
+      if (resumeAt > 0 && Number.isFinite(audio.duration)) audio.currentTime = Math.min(resumeAt, audio.duration)
       onTrack(item)
+      if (queue[index + 1]) Promise.resolve(resolve(queue[index + 1])).catch(() => {})
     } catch (error) {
       if (serial === request) {
         forgetStream(item)
-        failure(item.source === 'youtube' ? 'La fuente de audio de Yutu no pudo entregar esta canción. Intenta más tarde.' : error.message || 'No se pudo reproducir esta canción.')
+        if (!retry && error.name !== 'NotAllowedError') return select(index, true, resumeAt)
+        hasStarted = false
+        audio.pause()
+        failure(error.name === 'NotAllowedError' ? 'Toca reproducir para iniciar la música.' :
+          'No se pudo conectar con el audio de esta canción. Toca reproducir para reintentar.')
       }
     } finally {
       if (serial === request) {
@@ -96,11 +104,21 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     } else audio.pause()
   }
   audio.addEventListener('error', () => {
-    if (!loading && track() && loadedKey === key(track())) failure('No se pudo cargar el audio. Intenta reproducirlo de nuevo.')
+    if (loading || !audio.error || !track() || loadedKey !== key(track())) return
+    hasStarted = false
+    forgetStream(track())
+    if (!recoveryUsed) {
+      select(index, true, audio.currentTime)
+    } else {
+      audio.pause()
+      failure('No se pudo recuperar el audio. Toca reproducir para reintentar.')
+      change()
+    }
   })
   audio.addEventListener('ended', () => advance(1, true))
-  for (const type of ['play', 'pause']) audio.addEventListener(type, () => {
-    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = audio.paused ? 'paused' : 'playing'
+  for (const type of ['playing', 'pause']) audio.addEventListener(type, () => {
+    if (type === 'playing') hasStarted = true
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = hasStarted && !audio.paused ? 'playing' : 'paused'
     change()
   })
   for (const type of ['timeupdate', 'loadedmetadata', 'durationchange']) audio.addEventListener(type, () => {
@@ -117,8 +135,8 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
   return {
     state, select, toggle, advance,
     prepare(item) { Promise.resolve(resolve(item)).catch(() => {}) },
-    duration: () => audio.duration,
-    currentTime: () => audio.currentTime,
+    duration: () => loading ? 0 : audio.duration,
+    currentTime: () => loading ? 0 : audio.currentTime,
     seek(seconds) {
       if (Number.isFinite(seconds) && seconds >= 0 && Number.isFinite(audio.duration)) audio.currentTime = seconds
     },

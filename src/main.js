@@ -150,7 +150,7 @@ function updateProgress(duration = player.duration(), elapsed = player.currentTi
 function updatePlayer() {
   const play = player.state()
   const item = play.track
-  $('#player').innerHTML = `<div class="now">
+  $('#player').innerHTML = `<button class="mini-open" data-action="now" aria-label="Abrir reproductor de la canción actual" ${item ? '' : 'disabled'}></button><div class="now">
     <button class="now-track" data-action="now" ${item ? '' : 'disabled'}>${cover(item)}<span class="track-text"><strong>${escape(item?.title || 'Nada sonando')}</strong><span>${escape(item?.artist || 'Escoge una canción para comenzar')}</span></span></button>
     ${item ? button('heart', 'Favorito', 'favorite-current', `aria-pressed="${isFavorite(item)}"`) : ''}
   </div><div class="center-controls">${controls(play)}${timeline(!item)}</div>
@@ -308,13 +308,14 @@ document.addEventListener('submit', event => {
     render()
   }
 })
-for (const type of ['pointerover', 'pointerdown', 'focusin']) {
+for (const type of ['pointerdown', 'focusin']) {
   document.addEventListener(type, event => {
     const target = event.target.closest('[data-action="play"]')
     if (target && list[Number(target.dataset.index)]) player.prepare(list[Number(target.dataset.index)])
   }, { passive: true })
 }
 document.addEventListener('click', event => {
+  if (event.target.closest('input, select')) return
   const target = event.target.closest('[data-action]')
   if (!target) return
   const { action, id } = target.dataset

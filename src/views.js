@@ -40,7 +40,7 @@ export function shell(base) {
       </header>
       <main id="view" tabindex="-1"></main>
     </div>
-    <footer class="player-shell"><div id="player"></div><nav class="mobile-nav" aria-label="Principal móvil">${nav()}</nav></footer>
+    <footer class="player-shell"><div id="player" data-action="now"></div><nav class="mobile-nav" aria-label="Principal móvil">${nav()}</nav></footer>
     <dialog id="dialog" aria-label="Opciones"></dialog>
     <div id="toast" role="status"></div>`
 }
@@ -92,7 +92,7 @@ export function sourceSettings(source) {
     <p>Reproducción de audio mediante la fuente de Yutu. La disponibilidad de las canciones depende del servidor de música.</p>
     <p class="form-error" role="alert"></p>
     <button class="primary" type="submit">Guardar ajustes</button>
-    <small>Espotifay 1.3.0</small>
+    <small>Espotifay 1.3.1</small>
   </form>`
 }
 

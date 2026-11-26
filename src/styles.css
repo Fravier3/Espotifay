@@ -305,3 +305,9 @@ dialog::backdrop{background:#08080acb}
  .player-shell{padding-bottom:10px}
 }
 @media(prefers-reduced-motion:reduce){.is-loading:after{animation:none}}
+
+.mini-open{position:absolute;inset:0;width:100%;height:100%;border-radius:inherit;z-index:0}
+.mini-open:focus-visible{outline-offset:-3px}
+#player>.now,#player>.center-controls,#player>.player-tools{position:relative;z-index:1;pointer-events:none}
+#player button,#player input{pointer-events:auto}
+#player .mini-progress{pointer-events:none}
