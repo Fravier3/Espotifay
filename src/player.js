@@ -9,7 +9,7 @@ export function nextIndex(index, total, direction, { repeat, shuffle }, random =
   return repeat ? (next + total) % total : -1
 }
 
-export function createPlayer(audio, { endpoint, change, progress, failure, onTrack }) {
+export function createPlayer(audio, { standby = null, change, progress, failure, onTrack }) {
   let queue = []
   let index = -1
   let serial = 0
@@ -20,11 +20,49 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
   let shuffle = false
   let repeat = false
   let priming = false
+  let upcoming = null
+  const elements = standby ? [audio, standby] : [audio]
   const track = () => queue[index]
   const state = () => ({ queue, index, track: track(), playing: hasStarted && !audio.paused && !loading, loading, shuffle, repeat })
 
   function resolve(item) {
     return stream(item)
+  }
+
+  function clearMedia(element) {
+    if (!element?.getAttribute('src')) return
+    element.removeAttribute('src')
+    element.load()
+  }
+
+  function clearUpcoming() {
+    upcoming = null
+    clearMedia(standby)
+  }
+
+  function prepareNext() {
+    if (!hasStarted || loading) return
+    const position = nextIndex(index, queue.length, 1, { repeat, shuffle })
+    if (position < 0 || position === index || navigator.connection?.saveData) {
+      clearUpcoming()
+      return
+    }
+    const item = queue[position]
+    if (upcoming?.key === key(item)) {
+      upcoming.position = position
+      return
+    }
+    clearUpcoming()
+    const prepared = { position, key: key(item), url: '' }
+    upcoming = prepared
+    Promise.resolve(resolve(item)).then(url => {
+      if (upcoming !== prepared) return
+      prepared.url = url
+      if (standby) {
+        standby.preload = 'auto'
+        standby.src = url
+      }
+    }).catch(() => {})
   }
 
   function syncMedia(item) {
@@ -47,14 +85,14 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     audio.play().catch(() => {})
   }
 
-  async function playAudio(request) {
+  async function playAudio(request, element = audio) {
     let timer
     try {
       await Promise.race([
-        audio.play(),
+        element.play(),
         new Promise((_, reject) => {
           timer = setTimeout(() => {
-            if (serial === request) audio.pause()
+            if (serial === request) element.pause()
             reject(new DOMException('El audio no respondió a tiempo.', 'TimeoutError'))
           }, 15000)
         })
@@ -71,24 +109,45 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     recoveryUsed = retry
     audio.pause()
     const item = track()
+    const preparedUrl = !retry && upcoming?.key === key(item) ? upcoming.url : ''
+    const preloaded = preparedUrl && standby?.readyState >= 3 && !standby.error
+    upcoming = null
+    if (!preloaded) clearMedia(standby)
     change()
     try {
-      const preparedUrl = resolve(item)
-      if (fromGesture && typeof preparedUrl !== 'string') prime()
-      const url = typeof preparedUrl === 'string' ? preparedUrl : await preparedUrl
+      const source = preparedUrl || resolve(item)
+      if (fromGesture && typeof source !== 'string') prime()
+      const url = typeof source === 'string' ? source : await source
       if (serial !== request) return
       priming = false
       audio.loop = false
-      audio.src = url
       loadedKey = key(item)
       syncMedia(item)
       try { if (navigator.audioSession) navigator.audioSession.type = 'playback' } catch { /* Optional platform hint. */ }
-      await playAudio(request)
+      if (preloaded) {
+        const prepared = standby
+        try {
+          await playAudio(request, prepared)
+          if (serial !== request) return
+          standby = audio
+          audio = prepared
+          clearMedia(standby)
+        } catch {
+          if (serial !== request) return
+          clearMedia(standby)
+          audio.src = url
+          await playAudio(request)
+        }
+      } else {
+        audio.src = url
+        await playAudio(request)
+      }
       if (serial !== request) return
       hasStarted = true
       if (resumeAt > 0 && Number.isFinite(audio.duration)) audio.currentTime = Math.min(resumeAt, audio.duration)
+      syncPlaybackState()
+      updateProgress()
       onTrack(item)
-      if (queue[index + 1]) Promise.resolve(resolve(queue[index + 1])).catch(() => {})
     } catch (error) {
       if (serial === request) {
         forgetStream(item)
@@ -101,6 +160,7 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     } finally {
       if (serial === request) {
         loading = false
+        prepareNext()
         change()
       }
     }
@@ -112,6 +172,7 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     hasStarted = false
     loadedKey = ''
     recoveryUsed = false
+    clearUpcoming()
     audio.pause()
     priming = false
     audio.loop = false
@@ -134,7 +195,8 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
       audio.play().catch(error => failure(error.message))
       return
     }
-    const next = nextIndex(index, queue.length, direction, { repeat, shuffle })
+    const next = direction === 1 && upcoming ? upcoming.position :
+      nextIndex(index, queue.length, direction, { repeat, shuffle })
     if (next >= 0) select(next, false, 0, !automatic)
     else change()
   }
@@ -151,7 +213,7 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
       } catch (error) { failure(error.message) }
     } else audio.pause()
   }
-  audio.addEventListener('error', () => {
+  function onError() {
     if (loading || !audio.error || !track() || loadedKey !== key(track())) return
     hasStarted = false
     forgetStream(track())
@@ -162,17 +224,30 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
       failure('No se pudo recuperar el audio. Toca reproducir para reintentar.')
       change()
     }
-  })
-  audio.addEventListener('ended', () => { if (track() && loadedKey === key(track())) advance(1, true) })
-  for (const type of ['playing', 'pause']) audio.addEventListener(type, () => {
-    if (priming) return
-    if (type === 'playing') hasStarted = true
-    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = hasStarted && !audio.paused ? 'playing' : 'paused'
-    change()
-  })
-  for (const type of ['timeupdate', 'loadedmetadata', 'durationchange']) audio.addEventListener(type, () => {
+  }
+  for (const element of elements) {
+    element.addEventListener('error', () => { if (element === audio) onError() })
+    element.addEventListener('ended', () => {
+      if (element === audio && !loading && track() && loadedKey === key(track())) advance(1, true)
+    })
+    for (const type of ['playing', 'pause']) element.addEventListener(type, () => {
+      if (element !== audio || priming) return
+      if (type === 'playing') hasStarted = true
+      syncPlaybackState()
+      change()
+    })
+    for (const type of ['timeupdate', 'loadedmetadata', 'durationchange']) element.addEventListener(type, () => {
+      if (element === audio) updateProgress()
+    })
+  }
+  function updateProgress() {
     progress(Number.isFinite(audio.duration) ? audio.duration : 0, audio.currentTime)
-  })
+  }
+  function syncPlaybackState() {
+    try {
+      if (navigator.mediaSession) navigator.mediaSession.playbackState = hasStarted && !audio.paused ? 'playing' : 'paused'
+    } catch { /* Some browsers expose only part of the media session API. */ }
+  }
   const actions = {
     play: () => { if (audio.paused) toggle() },
     pause: () => audio.pause(), previoustrack: () => advance(-1),
@@ -189,21 +264,22 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     seek(seconds) {
       if (Number.isFinite(seconds) && seconds >= 0 && Number.isFinite(audio.duration)) audio.currentTime = seconds
     },
-    volume(value) { audio.volume = value },
+    volume(value) { for (const element of elements) element.volume = value },
     start(item, list) {
       queue = list.slice()
       let position = queue.findIndex(entry => key(entry) === key(item))
       if (position < 0) { position = queue.length; queue.push(item) }
       select(position, false, 0, true)
     },
-    add(item) { queue = [...queue, item]; change() },
+    add(item) { queue = [...queue, item]; prepareNext(); change() },
     remove(position) {
       if (position === index) return
       queue = queue.filter((_, i) => i !== position)
       if (position < index) index--
+      prepareNext()
       change()
     },
-    shuffle() { shuffle = !shuffle; change() },
-    repeat() { repeat = !repeat; change() }
+    shuffle() { shuffle = !shuffle; prepareNext(); change() },
+    repeat() { repeat = !repeat; prepareNext(); change() }
   }
 }

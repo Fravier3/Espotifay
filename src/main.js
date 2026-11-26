@@ -48,7 +48,7 @@ $('#app').innerHTML = shell(base)
 const dialog = $('#dialog')
 attachSwipeDismiss(dialog)
 const player = createPlayer(audio, {
-  endpoint: () => prefs.endpoint,
+  standby: $('#upcoming-audio'),
   change: updatePlayer,
   progress: updateProgress,
   failure: notify,
