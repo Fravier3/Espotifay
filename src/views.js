@@ -92,7 +92,7 @@ export function sourceSettings(source) {
     <p>Reproducción de audio mediante la fuente de Yutu. La disponibilidad de las canciones depende del servidor de música.</p>
     <p class="form-error" role="alert"></p>
     <button class="primary" type="submit">Guardar ajustes</button>
-    <small>Espotifay 1.5.0</small>
+    <small>Espotifay 1.5.1</small>
   </form>`
 }
 

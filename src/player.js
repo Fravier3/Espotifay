@@ -19,6 +19,7 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
   let recoveryUsed = false
   let shuffle = false
   let repeat = false
+  let priming = false
   const track = () => queue[index]
   const state = () => ({ queue, index, track: track(), playing: hasStarted && !audio.paused && !loading, loading, shuffle, repeat })
 
@@ -36,7 +37,32 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     })
   }
 
-  async function select(position, retry = false, resumeAt = 0) {
+  // Authorize this same media element during the tap, before metadata awaits.
+  // Safari grants media permission per element; retain it when dismissing the bar.
+  function prime() {
+    if (loadedKey || priming) return
+    priming = true
+    audio.src = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA=='
+    audio.loop = true
+    audio.play().catch(() => {})
+  }
+
+  async function playAudio(request) {
+    let timer
+    try {
+      await Promise.race([
+        audio.play(),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            if (serial === request) audio.pause()
+            reject(new DOMException('El audio no respondió a tiempo.', 'TimeoutError'))
+          }, 15000)
+        })
+      ])
+    } finally { clearTimeout(timer) }
+  }
+
+  async function select(position, retry = false, resumeAt = 0, fromGesture = false) {
     if (!queue[position]) return
     const request = ++serial
     index = position
@@ -48,13 +74,16 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     change()
     try {
       const preparedUrl = resolve(item)
+      if (fromGesture && typeof preparedUrl !== 'string') prime()
       const url = typeof preparedUrl === 'string' ? preparedUrl : await preparedUrl
       if (serial !== request) return
+      priming = false
+      audio.loop = false
       audio.src = url
       loadedKey = key(item)
       syncMedia(item)
       try { if (navigator.audioSession) navigator.audioSession.type = 'playback' } catch { /* Optional platform hint. */ }
-      await audio.play()
+      await playAudio(request)
       if (serial !== request) return
       hasStarted = true
       if (resumeAt > 0 && Number.isFinite(audio.duration)) audio.currentTime = Math.min(resumeAt, audio.duration)
@@ -84,11 +113,13 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     loadedKey = ''
     recoveryUsed = false
     audio.pause()
-    audio.removeAttribute('src')
-    audio.load()
+    priming = false
+    audio.loop = false
     if ('mediaSession' in navigator) {
-      navigator.mediaSession.metadata = null
-      navigator.mediaSession.playbackState = 'none'
+      try {
+        navigator.mediaSession.metadata = null
+        navigator.mediaSession.playbackState = 'none'
+      } catch { /* Preserve dismissal on browsers with partial media-session support. */ }
     }
     progress(0, 0)
     change()
@@ -104,7 +135,7 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
       return
     }
     const next = nextIndex(index, queue.length, direction, { repeat, shuffle })
-    if (next >= 0) select(next)
+    if (next >= 0) select(next, false, 0, !automatic)
     else change()
   }
   async function toggle() {
@@ -112,7 +143,7 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
     if (audio.paused) {
       if (loadedKey !== key(track()) || audio.error) {
         forgetStream(track())
-        return select(index)
+        return select(index, false, 0, true)
       }
       try {
         if (audio.ended) audio.currentTime = 0
@@ -134,6 +165,7 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
   })
   audio.addEventListener('ended', () => { if (track() && loadedKey === key(track())) advance(1, true) })
   for (const type of ['playing', 'pause']) audio.addEventListener(type, () => {
+    if (priming) return
     if (type === 'playing') hasStarted = true
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = hasStarted && !audio.paused ? 'playing' : 'paused'
     change()
@@ -143,14 +175,14 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
   })
   const actions = {
     play: () => { if (audio.paused) toggle() },
-    pause: () => audio.pause(), stop, previoustrack: () => advance(-1),
+    pause: () => audio.pause(), previoustrack: () => advance(-1),
     nexttrack: () => advance(1), seekto: e => { if (Number.isFinite(e.seekTime)) audio.currentTime = e.seekTime }
   }
   for (const [name, handler] of Object.entries(actions)) {
     try { navigator.mediaSession?.setActionHandler(name, handler) } catch { /* Browser action unsupported. */ }
   }
   return {
-    state, select, toggle, advance, stop,
+    state, select: position => select(position, false, 0, true), toggle, advance, stop,
     prepare(item) { return Promise.resolve(resolve(item)).catch(() => {}) },
     duration: () => loading ? 0 : audio.duration,
     currentTime: () => loading ? 0 : audio.currentTime,
@@ -162,7 +194,7 @@ export function createPlayer(audio, { endpoint, change, progress, failure, onTra
       queue = list.slice()
       let position = queue.findIndex(entry => key(entry) === key(item))
       if (position < 0) { position = queue.length; queue.push(item) }
-      select(position)
+      select(position, false, 0, true)
     },
     add(item) { queue = [...queue, item]; change() },
     remove(position) {
