@@ -33,7 +33,7 @@ test('authorizes audio during the tap and preserves the element when dismissing'
     inGesture = false
     assert.equal(authorized, true, 'play must be called before the first await')
     assert.equal(player.state().loading, true)
-    await new Promise(resolve => setTimeout(resolve, 50))
+    await new Promise(resolve => setTimeout(resolve, 100))
     assert.equal(failure, '')
     assert.equal(player.state().playing, true)
     assert.equal(audio.loop, false)

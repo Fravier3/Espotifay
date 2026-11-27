@@ -1,1 +1,8 @@
-{"version":2,"functions":{"api/search.js":{"maxDuration":30},"api/media.js":{"maxDuration":300}}}
+{
+  "version": 2,
+  "functions": {
+    "api/search.js": { "maxDuration": 30 },
+    "api/sources.js": { "maxDuration": 10 },
+    "api/media.js": { "maxDuration": 120 }
+  }
+}

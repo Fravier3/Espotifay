@@ -82,18 +82,59 @@ export function timeline(disabled) {
   return `<div class="timeline"><span data-time>0:00</span><input type="range" aria-label="Progreso de la canción" data-range="seek" min="0" max="0" step="0.1" value="0" ${disabled ? 'disabled' : ''}><span data-total>0:00</span></div>`
 }
 
-export function sourceSettings(source) {
-  return `<form id="settings-form" class="dialog-form">
-    <label for="catalog">Catálogo activo</label>
-    <select id="catalog" name="catalog">
-      <option value="youtube" ${source === 'youtube' ? 'selected' : ''}>Espotifay</option>
-      <option value="audius" ${source === 'audius' ? 'selected' : ''}>Audius · música independiente</option>
-    </select>
-    <p>Reproducción de audio mediante la fuente de Yutu. La disponibilidad de las canciones depende del servidor de música.</p>
-    <p class="form-error" role="alert"></p>
-    <button class="primary" type="submit">Guardar ajustes</button>
-    <small>Espotifay 1.5.2</small>
-  </form>`
+const syncLabels = {
+  syncing: 'Sincronizando…',
+  synced: 'Biblioteca sincronizada',
+  offline: 'Sin conexión: se sincronizará al volver',
+  error: 'No se pudo sincronizar. Se reintentará.'
+}
+
+export function accountSection(account) {
+  if (account.user) {
+    const when = account.lastSynced ? ' · ' + new Date(account.lastSynced).toLocaleString('es-PR', { dateStyle: 'short', timeStyle: 'short' }) : ''
+    return `<section class="settings-block" id="account-block" aria-labelledby="account-title">
+      <h3 id="account-title">Tu cuenta</h3>
+      <p><strong>${escape(account.email)}</strong></p>
+      <p class="sync-status" data-status="${escape(account.status)}">${escape(syncLabels[account.status] || '')}${account.status === 'synced' ? escape(when) : ''}</p>
+      <div class="inline wrap"><button class="primary" data-action="sync-now">Sincronizar ahora</button>
+      <button class="text-button bordered" data-action="sign-out">Cerrar sesión</button></div>
+    </section>`
+  }
+  return `<section class="settings-block" id="account-block" aria-labelledby="account-title">
+    <h3 id="account-title">Guarda tu biblioteca en la nube</h3>
+    <p>Entra o crea una cuenta para tener tus playlists y favoritas en todos tus dispositivos. No hace falta confirmar el correo.</p>
+    <form id="account-form" class="dialog-form">
+      <label for="account-email">Correo</label>
+      <input id="account-email" name="email" type="email" autocomplete="username" inputmode="email" required>
+      <label for="account-password">Contraseña</label>
+      <input id="account-password" name="password" type="password" autocomplete="current-password" minlength="6" required>
+      <small>Mínimo 6 caracteres.</small>
+      <p class="form-error" role="alert"></p>
+      <div class="inline wrap"><button class="primary" type="submit" value="sign-in">Entrar</button>
+      <button class="text-button bordered" type="submit" value="sign-up">Crear cuenta</button></div>
+    </form>
+  </section>`
+}
+
+export function settingsView({ source, account, version }) {
+  return `<div class="settings">
+    ${accountSection(account)}
+    <section class="settings-block" aria-labelledby="backup-title">
+      <h3 id="backup-title">Copia de seguridad</h3>
+      <p>Guarda un archivo con tus playlists, favoritas y artistas, o recupéralos en otro teléfono.</p>
+      <div class="inline wrap"><button class="text-button bordered" data-action="export-library">Exportar biblioteca</button>
+      <label class="text-button bordered file-button">Importar biblioteca<input type="file" id="import-file" accept="application/json,.json"></label></div>
+    </section>
+    <form id="settings-form" class="dialog-form settings-block">
+      <label for="catalog">Catálogo activo</label>
+      <select id="catalog" name="catalog">
+        <option value="youtube" ${source === 'youtube' ? 'selected' : ''}>Espotifay</option>
+        <option value="audius" ${source === 'audius' ? 'selected' : ''}>Audius · música independiente</option>
+      </select>
+      <p>La disponibilidad de las canciones de Espotifay depende de los servidores de audio. Audius siempre ofrece música independiente.</p>
+    </form>
+    <small class="version">Espotifay ${escape(version)}</small>
+  </div>`
 }
 
 export { providers }

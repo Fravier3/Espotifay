@@ -1,1 +1,7 @@
-{"name":"espotifay-catalog","private":true,"type":"module","dependencies":{"youtubei.js":"18.3.0"}}
+{
+  "name": "espotifay-catalog",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test" },
+  "dependencies": { "youtubei.js": "18.3.0" }
+}

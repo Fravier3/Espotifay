@@ -6,7 +6,8 @@ test('selection and preloading share one metadata request and reuse the resolved
   let calls = 0
   const original = globalThis.fetch
   const url = 'https://test.googlevideo.com/audio'
-  globalThis.fetch = async () => {
+  globalThis.fetch = async request => {
+    if (String(request).includes('/api/sources')) return new Response(JSON.stringify({ instances: ['https://inv.test'] }))
     calls++
     return new Response(JSON.stringify({ adaptiveFormats: [{ type: 'audio/mp4', url, bitrate: '128000' }] }))
   }
@@ -24,7 +25,7 @@ test('selection and preloading share one metadata request and reuse the resolved
 test('a slow metadata response remains eligible for direct playback', async () => {
   const original = globalThis.fetch
   const url = 'https://test.googlevideo.com/slow-audio'
-  globalThis.fetch = (_, { signal }) => new Promise((resolve, reject) => {
+  globalThis.fetch = (request, { signal }) => String(request).includes('/api/sources') ? Promise.resolve(new Response('{}')) : new Promise((resolve, reject) => {
     const timer = setTimeout(() => resolve(new Response(JSON.stringify({
       adaptiveFormats: [{ type: 'audio/mp4', url, bitrate: '128000' }]
     }))), 2200)
@@ -43,7 +44,8 @@ test('a failed song does not disable direct playback or cache the proxy as a suc
   const track = { source: 'youtube', id: 'temporary-failure' }
   const url = 'https://test.googlevideo.com/recovered'
   let calls = 0
-  globalThis.fetch = async () => {
+  globalThis.fetch = async request => {
+    if (String(request).includes('/api/sources')) return new Response(JSON.stringify({ instances: ['https://inv.test'] }))
     calls++
     return calls === 1 ? new Response('', { status: 403 }) :
       new Response(JSON.stringify({ adaptiveFormats: [{ type: 'audio/mp4', url, bitrate: '128000' }] }))

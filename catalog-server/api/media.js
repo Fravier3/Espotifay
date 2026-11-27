@@ -1,29 +1,56 @@
 import { Readable } from 'node:stream'
+import { clientFingerprint, cors, isAllowedOrigin } from '../lib/http.js'
+import { findAudio, forget, markFailure } from '../lib/invidious.js'
+import { allowMedia } from '../lib/limits.js'
+
+const VIDEO_ID = /^[\w-]{11}$/
+const PASSTHROUGH = ['content-type', 'content-range', 'content-length', 'accept-ranges']
+
+/** Retransmite el audio de una canción para la PWA (respaldo cuando el enlace directo falla). */
 export default async function handler(req, res) {
- res.setHeader('Access-Control-Allow-Origin','https://fravier3.github.io')
- res.setHeader('Access-Control-Expose-Headers','Content-Length, Content-Range, Accept-Ranges')
- if(req.method==='OPTIONS'){res.setHeader('Access-Control-Allow-Headers','Range');return res.status(204).end()}
- if(req.method!=='GET')return res.status(405).end()
- const id=String(req.query.id||'')
- if(!/^[\w-]{11}$/.test(id))return res.status(400).json({error:'Identificador inválido'})
- try{
-  const endpoint='https://yt.chocolatemoo53.com'
-  const response=await fetch(endpoint+'/api/v1/videos/'+id+'?local=true',{signal:AbortSignal.timeout(12000)})
-  if(!response.ok)throw Error('Invidious respondió '+response.status)
-  const data=await response.json()
-  const format=(data.adaptiveFormats||[]).filter(f=>(f.type||'').startsWith('audio/mp4')).sort((a,b)=>Number(b.bitrate)-Number(a.bitrate))[0]
-  if(!format?.url)throw Error('No hay audio AAC')
-  const url=new URL(format.url,endpoint)
-  if(url.protocol!=='https:' || !(url.hostname.endsWith('.googlevideo.com') || url.hostname==='yt.chocolatemoo53.com'))throw Error('Enlace inválido')
-  const upstream=await fetch(url,{headers:{Range:req.headers.range||'bytes=0-'},signal:AbortSignal.timeout(60000)})
-  if(!upstream.ok)throw Error('El audio respondió '+upstream.status)
-  if(!upstream.headers.get('content-type')?.startsWith('audio/'))throw Error('La fuente no devolvió audio')
-  res.status(upstream.status)
-  for(const name of ['content-type','content-range','content-length','accept-ranges']){const v=upstream.headers.get(name);if(v)res.setHeader(name,v)}
-  res.setHeader('Cache-Control','no-store')
-  const stream=Readable.fromWeb(upstream.body)
-  req.on('aborted',()=>stream.destroy())
-  stream.on('error',()=>res.destroy())
-  stream.pipe(res)
- }catch(e){console.error('Invidious audio',e.message);if(!res.headersSent)res.status(502).json({error:'La fuente de audio de Yutu no está disponible. Intenta más tarde.'})}
+  cors(req, res, { headers: 'Range', expose: 'Content-Length, Content-Range, Accept-Ranges' })
+  if (req.method === 'OPTIONS') return res.status(204).end()
+  if (req.method !== 'GET') return res.status(405).end()
+  if (!isAllowedOrigin(req)) return res.status(403).json({ error: 'Origen no permitido' })
+
+  const id = String(req.query.id || '')
+  if (!VIDEO_ID.test(id)) return res.status(400).json({ error: 'Identificador inválido' })
+
+  const [allowed, audio] = await Promise.all([
+    allowMedia(clientFingerprint(req)),
+    findAudio(id).catch(error => ({ error }))
+  ])
+  if (!allowed) {
+    res.setHeader('Retry-After', '600')
+    return res.status(429).json({ error: 'Demasiadas canciones en poco tiempo. Intenta en unos minutos.' })
+  }
+  if (audio.error) {
+    console.error('Audio', id, audio.error.message)
+    return res.status(502).json({ error: 'La fuente de audio no está disponible. Intenta más tarde.' })
+  }
+
+  try {
+    const upstream = await fetch(audio.url, {
+      headers: { Range: req.headers.range || 'bytes=0-' },
+      signal: AbortSignal.timeout(60_000)
+    })
+    if (!upstream.ok || !upstream.headers.get('content-type')?.startsWith('audio/')) {
+      forget(id)
+      markFailure(audio.base)
+      throw Error('El audio respondió ' + upstream.status)
+    }
+    res.status(upstream.status)
+    for (const name of PASSTHROUGH) {
+      const value = upstream.headers.get(name)
+      if (value) res.setHeader(name, value)
+    }
+    res.setHeader('Cache-Control', 'no-store')
+    const stream = Readable.fromWeb(upstream.body)
+    req.on('close', () => stream.destroy())
+    stream.on('error', () => res.destroy())
+    stream.pipe(res)
+  } catch (error) {
+    console.error('Audio', id, error.message)
+    if (!res.headersSent) res.status(502).json({ error: 'La fuente de audio no está disponible. Intenta más tarde.' })
+  }
 }

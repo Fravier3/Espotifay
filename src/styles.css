@@ -323,3 +323,18 @@ dialog::backdrop{background:#08080acb}
 #player{touch-action:pan-y}
 #player.is-sliding{will-change:transform,opacity}
 .transport .play-button.is-loading{background:transparent!important;opacity:1;pointer-events:none!important}
+
+/* Ajustes: cuenta, copia de seguridad y catálogo */
+.settings{display:grid;gap:14px}
+.settings-block{display:grid;gap:9px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#202127}
+.settings-block h3{font-size:16px}
+.settings-block p{color:var(--sub);font-size:13px;line-height:1.45}
+.settings-block p strong{color:var(--ink);overflow-wrap:anywhere}
+.inline.wrap{flex-wrap:wrap}
+.text-button.bordered{border:1px solid #41414d;border-radius:13px;min-height:43px;padding:0 15px;font-weight:680}
+.file-button{position:relative;display:inline-flex;align-items:center;cursor:pointer}
+.file-button input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.file-button:focus-within{outline:2px solid var(--accent);outline-offset:3px}
+.sync-status[data-status="synced"]{color:var(--lilac)}
+.sync-status[data-status="error"]{color:#ffb8ad}
+.settings .version{color:var(--sub);font-size:12px;text-align:center}
