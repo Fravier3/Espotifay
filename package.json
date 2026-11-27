@@ -2,7 +2,7 @@
   "name": "espotifay",
   "version": "1.6.0",
   "scripts": {
-    "test": "node --test",
+    "test": "node --test test/",
     "dev": "vite --host 0.0.0.0",
     "build": "vite build && node scripts/service-worker.js",
     "preview": "vite preview --host 0.0.0.0"
